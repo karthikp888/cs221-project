@@ -124,7 +124,7 @@ def DQN():
             # get preprocessed image
             phi = preprocess(recentKObservations)
             # add it to the replay memory
-            D.append((prevPhi, action, rewardFromKSteps, phi))
+            D.append((prevPhi, action, rewardFromKSteps, phi, done))
             prevPhi = phi
             # Ensure the size of the D is not going above the limit
             if len(D) == N:
