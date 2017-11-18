@@ -11,6 +11,6 @@
   * `pip install gym[atari] --ignore-installed`
     * put `gym[atari]` in quotes if using zsh
   * `pip install future --ignore-installed`
-
+  * `pip install pydot`
 # Running DQN Agent
 `python riverraid.py`
