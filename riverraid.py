@@ -70,7 +70,7 @@ def preprocess(recentObservations):
     def getYChannelsForAllObservations(maxObservations):
         yChannels = []
         for ob in maxObservations:
-            yChannels.append(ob)
+            yChannels.append(getYChannelForOneObservation(ob))
         return yChannels
 
     def step2(yChannels):
