@@ -3,7 +3,7 @@
 * Install cmake: `brew install cmake`
 * Install pip: `sudo easy_install pip`
 * Install virtualenv: `pip install --upgrade virtualenv `
-* Create a new virtual environment: `virtualenv --system-site-packages tensorflow`
+* Create a new virtual environment: `virtualenv --system-site-packages ~/tensorflow`
 * activate virtualenv: `source ~/tensorflow/bin/activate ` (use `deactivate` to close it)
 * Install tensorflow: https://www.tensorflow.org/install/install_mac
 * Install keras: https://keras.io/#installation
