@@ -14,6 +14,7 @@ import scipy.misc
 C = 10000
 N = 1000000
 k = 4
+epsilon = 0.1  # TODO: linearly variable with t
 
 
 def initNet():
@@ -34,6 +35,7 @@ def QFunc(model, phi, action):
 
 
 def preprocess(recentObservations):
+
     def getMaxBetweenTwo(ob1, ob2):
         maxObservation = ndarray(ob1.shape)
         for i in range(ob1.shape[0]):
@@ -79,50 +81,55 @@ def preprocess(recentObservations):
 
     return step2(getYChannelsForAllObservations(step1(recentObservations)))
 
+def executeKActions(env, action):
+    recentKObservations = []
+    rewardTotal = 0
+    done = False
+    for i in range(2*k):
+        observation, reward, done, info = env.step(action)
+        recentKObservations.append(observation)
+        rewardTotal += reward
+        if done:
+            recentKObservations = []
+            recentKObservations = [observation] * (2*k)
+            break
+    return recentKObservations, rewardTotal, done
+
 def DQN():
     Ccounter = 0
-    kCounter = 0
     env = gym.make('Riverraid-v0')
     Q = initNet()
     QHat = initNet()
     average=0
     num_episodes=1
-    epsilon = 0.1
-    recentKObservations= []
+
     D = []
     for i_episode in range(num_episodes):
         total_reward = 0
         observation = env.reset()
-        prevObservation = observation
-        action = None
+        action = env.action_space.sample()
+        recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+        prevPhi = preprocess(recentKObservations)
         for t in range(1000000):
             env.render()
-            kCounter += 1
-            if kCounter == 2*k:
-                # select new action based on epsilon greedy solution
-                if random.uniform(0, 1) < epsilon:
-                    action = env.action_space.sample()
-                else:
-                    phi = preprocess()
-                    action = action
+            # perform epsilon greedy approach in choosing action
+            if random.uniform(0, 1) < epsilon:
+                action = env.action_space.sample()  # exploration
             else:
-                # repeat the past selected action on the environment
-                # this is done to make the processing faster
-                recentKObservations.append(observation)
-                pass
+                action = action  # TODO: do argmax greedy
 
-            # TODO: Perform epsilon greedy selection of actions
-
-
-            observation, reward, done, info = env.step(action)
-            # Preprocess state to phi
-            # TODO: preprocess needs to take a list of 8 frames but can be assumed for now
-            phi = preprocess(prevObservation, observation)
-            D.append(phi)
+            # RUN the selected action for 2K times for better results
+            recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+            # get preprocessed image
+            phi = preprocess(recentKObservations)
+            # add it to the replay memory
+            D.append((prevPhi, action, rewardFromKSteps, phi))
+            prevPhi = phi
+            # Ensure the size of the D is not going above the limit
             if len(D) == N:
                 D.pop(0)
 
-            total_reward += reward
+            total_reward += rewardFromKSteps
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
                 #print observation, reward, done, info
