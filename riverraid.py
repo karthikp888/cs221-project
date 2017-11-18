@@ -156,8 +156,8 @@ if __name__ == '__main__':
                         prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
                         target = (reward + DISCOUNT_FACTOR * prediction)
                     actual = Q.predict(selfPhi[numpy.newaxis,:,:,:])
-                    target[0][action] = target
-                    Q.fit(selfPhi, target, epochs=1, verbose=0)
+                    actual[0][action] = target
+                    Q.fit(selfPhi[numpy.newaxis,:,:,:], actual, epochs=1, verbose=0)
                 if epsilon > EPSILON_MIN:
                     epsilon *= ESPILON_DECAY
 
