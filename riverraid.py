@@ -17,7 +17,7 @@ import scipy.misc
 # hyperparameters
 C = 10000
 N = 1000000
-NUM_EPISODES = 200
+NUM_EPISODES = 20000
 NUM_ITERATIONS = 10000
 EPSILON_MIN = 0.1
 ESPILON_DECAY = 0.995
@@ -34,6 +34,7 @@ def initNet():
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4)))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32)))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64)))
+    model.add(Flatten())
     model.add(Dense(512, activation='relu'))
     model.add(Dense(18, activation='linear', input_shape=(512,)))
     model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
@@ -145,7 +146,7 @@ if __name__ == '__main__':
             if val <= epsilon:
                 action = env.action_space.sample()
             else:
-                action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:])[0])
+                action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
             # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(action)
@@ -171,9 +172,11 @@ if __name__ == '__main__':
                     if not done:
                         prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
                         target = (reward + DISCOUNT_FACTOR * prediction)
-                    actual = Q.predict(selfPhi[numpy.newaxis,:,:,:])
+                    actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
+                    #print "actual size={}".format(actual)
                     actual[0][action] = target
                     Q.fit(selfPhi[numpy.newaxis,:,:,:], actual, epochs=1, verbose=0)
+
                 if epsilon > EPSILON_MIN:
                     epsilon *= ESPILON_DECAY
 
