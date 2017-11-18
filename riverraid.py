@@ -1,4 +1,5 @@
 import numpy
+from numpy import random
 from numpy.core.numeric import ndarray
 from scipy.misc.pilutil import imresize
 from keras.models import Sequential
@@ -25,6 +26,7 @@ MINIBATCH_SIZE = 32
 REPLAY_MEMORY_SIZE = 1000000
 DISCOUNT_FACTOR = 0.99
 UPDATE_FREQUENCY = 2
+K_OPERATION_COUNT = 4
 
 def initNet():
     model = Sequential()
@@ -34,45 +36,68 @@ def initNet():
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64)))
     model.add(Dense(512, activation='relu'))
     model.add(Dense(18, activation='linear', input_shape=(512,)))
-    # model.compile(loss='mean_squared_error', optimizer='rmsprop')
     model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
-    # model.fit(X_train, Y_train, batch_size=32, verbose=1)
     return model
 
-def preprocess(prev, curr):
-    def step1(prev, curr):
-        maxObservation = ndarray(prev.shape)
-        for i in range(prev.shape[0]):
-            for j in range(prev.shape[1]):
-                rgb = prev[i][j]
+def preprocess(recentObservations):
+    def getMaxBetweenTwo(ob1, ob2):
+        maxObservation = ndarray(ob1.shape)
+        for i in range(ob1.shape[0]):
+            for j in range(ob1.shape[1]):
+                rgb1 = ob1[i][j]
+                rgb2 = ob2[i][j]
                 maxObservation[i][j] = (
-                max(prev[i][j][0], curr[i][j][0]), max(prev[i][j][1], curr[i][j][1]),
-                max(prev[i][j][2], curr[i][j][2]))
+                    max(rgb1[0], rgb2[0]),
+                    max(rgb1[1], rgb2[1]),
+                    max(rgb1[2], rgb2[2]))
         return maxObservation
 
-    def getYChannel(observation):
+    def step1():
+        maxObservations = []
+        for i in range(k):
+            maxObservations.append(getMaxBetweenTwo(recentObservations[i], recentObservations[i+1]))
+        return maxObservations
+
+
+    def getYChannelForOneObservation(ob):
         yData = ndarray((210, 160))
-        for i in range(observation.shape[0]):
-            for j in range(observation.shape[1]):
-                rgb = observation[i][j]
+        for i in range(ob.shape[0]):
+            for j in range(ob.shape[1]):
+                rgb = ob[i][j]
                 yData[i][j] = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
         return yData
 
-    def step2(img):
-        return imresize(img, (84, 84))
+    def getYChannelsForAllObservations(maxObservations):
+        yChannels = []
+        for ob in maxObservations:
+            yChannels.append(ob)
+        return yChannels
 
-    maxObservation = step1(prev, curr)
-    yChannel = getYChannel(maxObservation)
-    return step2(yChannel)
+    def step2(yChannels):
+        preprocessedImage = ndarray((84,84,4))
+        for imgCounter in range(len(yChannels)):
+            # TODO: look into bilinear reduction
+            img = imresize(yChannels[imgCounter], (84, 84))
+            for i in range(img.shape[0]):
+                for j in range(img.shape[1]):
+                    preprocessedImage[i][j][imgCounter] = img[i][j]
+        return preprocessedImage
 
-def DQN():
-    Ccounter = 0
-    env = gym.make('Riverraid-v0')
-    Q = initNet()
-    QHat = initNet()
-    average=0
-    num_episodes=1
+    return step2(getYChannelsForAllObservations(step1(recentObservations)))
 
+def executeKActions(env, action):
+    recentKObservations = []
+    rewardTotal = 0
+    done = False
+    for i in range(2*k):
+        observation, reward, done, info = env.step(action)
+        recentKObservations.append(observation)
+        rewardTotal += reward
+        if done:
+            recentKObservations = []
+            recentKObservations = [observation] * (2*k)
+            break
+    return recentKObservations, rewardTotal, done
 
 if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
@@ -82,6 +107,8 @@ if __name__ == '__main__':
     plot_model(Q, to_file='model.png')
     # TODO: figure out if cnn creation is deterministic
     QHat = initNet()
+    weights = Q.get_weights()
+    QHat.set_weights(weights)
     epsilon = 1.0
     done = False
     c = 0
@@ -90,7 +117,10 @@ if __name__ == '__main__':
         total_reward = 0
         observation = env.reset()
         # TODO: maybe just need to do step2 here
-        selfPhi = phi = preprocess(observation, observation)
+        action = env.action_space.sample()
+        recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+        currentPhi = preprocess(recentKObservations)
+        
         for t in range(NUM_ITERATIONS):
             action = None
             env.render()
@@ -100,22 +130,20 @@ if __name__ == '__main__':
                 action = env.action_space.sample()
             else:
                 action = numpy.argmax(Q.predict(selfPhi)[0])
-
-            # generate and save new action
-            nextObservation, reward, done, info = env.step(action)
-            # TODO: figure out whether to set reward
-            # Preprocess state to phi
-            # TODO: preprocess needs to take a list of 8 frames but can be assumed for now
-            nextPhi = preprocess(observation, nextObservation)
-            memory.append((selfPhi, action, reward, nextPhi, done))
-            phi = nextPhi
-            total_reward += reward
+            
+            # RUN the selected action for 2K times for better results
+            recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+            # get preprocessed image
+            nextPhi = preprocess(recentKObservations)
+            # add it to the replay memory
+            memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
+            currentPhi = nextPhi
+            total_reward += rewardFromKSteps
+            
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
-                #print observation, reward, done, info
                 average += total_reward
                 print "episode reward ={}".format(total_reward)
-                print "observation = {}".format(observation.shape)
                 break
 
             # update and do gradient descent
@@ -135,9 +163,9 @@ if __name__ == '__main__':
 
             # update Qhat
             if c == UPDATE_FREQUENCY:
-                QHat = Q
+                weights = Q.get_weights()
+                QHat.set_weights(weights)
                 c = 0
             else:
                 c += 1
-
-    print "average reward={}".format(average/NUM_EPISODES)
+    print "average reward={}".format(average/num_episodes)
