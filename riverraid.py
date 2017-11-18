@@ -1,3 +1,4 @@
+import numpy
 from numpy import random
 from numpy.core.numeric import ndarray
 from scipy.misc.pilutil import imresize
@@ -116,7 +117,7 @@ def DQN():
             if random.uniform(0, 1) < epsilon:
                 action = env.action_space.sample()  # exploration
             else:
-                action = action  # TODO: do argmax greedy
+                action = numpy.argmax(Q.predict(prevPhi))
 
             # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
