@@ -54,7 +54,7 @@ def preprocess(recentObservations):
 
     def step1():
         maxObservations = []
-        for i in range(k):
+        for i in range(K_OPERATION_COUNT):
             maxObservations.append(getMaxBetweenTwo(recentObservations[i], recentObservations[i+1]))
         return maxObservations
 
@@ -89,13 +89,13 @@ def executeKActions(env, action):
     recentKObservations = []
     rewardTotal = 0
     done = False
-    for i in range(2*k):
+    for i in range(2*K_OPERATION_COUNT):
         observation, reward, done, info = env.step(action)
         recentKObservations.append(observation)
         rewardTotal += reward
         if done:
             recentKObservations = []
-            recentKObservations = [observation] * (2*k)
+            recentKObservations = [observation] * (2*K_OPERATION_COUNT)
             break
     return recentKObservations, rewardTotal, done
 
@@ -158,8 +158,8 @@ if __name__ == '__main__':
                     actual = Q.predict(selfPhi)
                     target[0][action] = target
                     Q.fit(selfPhi, target, epochs=1, verbose=0)
-                if epsilon > 0:
-                    epsilon *= EPSILON_DECAY
+                if epsilon > EPSILON_MIN:
+                    epsilon *= ESPILON_DECAY
 
             # update Qhat
             if c == UPDATE_FREQUENCY:
@@ -168,4 +168,4 @@ if __name__ == '__main__':
                 c = 0
             else:
                 c += 1
-    print "average reward={}".format(average/num_episodes)
+    print "average reward={}".format(average/NUM_EPISODES)
