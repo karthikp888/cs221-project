@@ -85,19 +85,20 @@ def preprocess(recentObservations):
 
     return step2(getYChannelsForAllObservations(step1()))
 
-def executeKActions(env, action):
-    recentKObservations = []
-    rewardTotal = 0
-    done = False
-    for i in range(2*K_OPERATION_COUNT):
-        observation, reward, done, info = env.step(action)
-        recentKObservations.append(observation)
-        rewardTotal += reward
-        if done:
-            recentKObservations = []
-            recentKObservations = [observation] * (2*K_OPERATION_COUNT)
-            break
-    return recentKObservations, rewardTotal, done
+# def executeKActions(env, action):
+#     recentKObservations = []
+#     rewardTotal = 0
+#     done = False
+#     for i in range(2*K_OPERATION_COUNT):
+#         env.render()
+#         observation, reward, done, info = env.step(action)
+#         recentKObservations.append(observation)
+#         rewardTotal += reward
+#         if done:
+#             recentKObservations = []
+#             recentKObservations = [observation] * (2*K_OPERATION_COUNT)
+#             break
+#     return env, recentKObservations, rewardTotal, done
 
 if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
@@ -114,16 +115,31 @@ if __name__ == '__main__':
     c = 0
     average = 0
     for i_episode in range(NUM_EPISODES):
+        def executeKActions(action):
+            recentKObservations = []
+            rewardTotal = 0
+            done = False
+            for i in range(2 * K_OPERATION_COUNT):
+                env.render()
+                observation, reward, done, info = env.step(action)
+                recentKObservations.append(observation)
+                rewardTotal += reward
+                if done:
+                    recentKObservations = []
+                    recentKObservations = [observation] * (2 * K_OPERATION_COUNT)
+                    break
+            return recentKObservations, rewardTotal, done
+
+
         total_reward = 0
         observation = env.reset()
         # TODO: maybe just need to do step2 here
         action = env.action_space.sample()
-        recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+        recentKObservations, rewardFromKSteps, done = executeKActions(action)
         currentPhi = preprocess(recentKObservations)
 
         for t in range(NUM_ITERATIONS):
             action = None
-            env.render()
             # choose random action with probability epsilon:
             val = random.uniform(0, 1)
             if val <= epsilon:
@@ -132,7 +148,7 @@ if __name__ == '__main__':
                 action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:])[0])
 
             # RUN the selected action for 2K times for better results
-            recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
+            recentKObservations, rewardFromKSteps, done = executeKActions(action)
             # get preprocessed image
             nextPhi = preprocess(recentKObservations)
             # add it to the replay memory
