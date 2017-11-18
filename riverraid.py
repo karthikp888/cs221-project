@@ -120,7 +120,7 @@ if __name__ == '__main__':
         action = env.action_space.sample()
         recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
         currentPhi = preprocess(recentKObservations)
-        
+
         for t in range(NUM_ITERATIONS):
             action = None
             env.render()
@@ -129,8 +129,8 @@ if __name__ == '__main__':
             if val <= epsilon:
                 action = env.action_space.sample()
             else:
-                action = numpy.argmax(Q.predict(selfPhi)[0])
-            
+                action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:])[0])
+
             # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
             # get preprocessed image
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
             currentPhi = nextPhi
             total_reward += rewardFromKSteps
-            
+
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
                 average += total_reward
@@ -153,9 +153,9 @@ if __name__ == '__main__':
                     target = reward
                     # update target if not in end state
                     if not done:
-                        prediction = numpy.amax(QHat.predict(nextPhi)[0])
+                        prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
                         target = (reward + DISCOUNT_FACTOR * prediction)
-                    actual = Q.predict(selfPhi)
+                    actual = Q.predict(selfPhi[numpy.newaxis,:,:,:])
                     target[0][action] = target
                     Q.fit(selfPhi, target, epochs=1, verbose=0)
                 if epsilon > EPSILON_MIN:
