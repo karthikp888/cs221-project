@@ -83,7 +83,7 @@ def preprocess(recentObservations):
                     preprocessedImage[i][j][imgCounter] = img[i][j]
         return preprocessedImage
 
-    return step2(getYChannelsForAllObservations(step1(recentObservations)))
+    return step2(getYChannelsForAllObservations(step1()))
 
 def executeKActions(env, action):
     recentKObservations = []
