@@ -26,7 +26,7 @@ MINIBATCH_SIZE = 32
 REPLAY_MEMORY_SIZE = 1000000
 DISCOUNT_FACTOR = 0.99
 UPDATE_FREQUENCY = 2
-K_OPERATION_COUNT = 4
+K_OPERATION_COUNT = 2
 
 def initNet():
     model = Sequential()
@@ -34,6 +34,7 @@ def initNet():
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4)))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32)))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64)))
+    model.add(Flatten())
     model.add(Dense(512, activation='relu'))
     model.add(Dense(18, activation='linear', input_shape=(512,)))
     model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
@@ -170,10 +171,12 @@ if __name__ == '__main__':
                     # update target if not in end state
                     if not done:
                         prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
-                        target = (reward + DISCOUNT_FACTOR * prediction)
+                        target = (reward + (DISCOUNT_FACTOR * prediction))
+                        # print 'reward: {} prediction: {} target: {}'.format(reward, prediction, target)
+
                     actual = Q.predict(selfPhi[numpy.newaxis,:,:,:])
                     actual[0][action] = target
-                    Q.fit(selfPhi[numpy.newaxis,:,:,:], actual, epochs=1, verbose=0)
+                    Q.fit(selfPhi[numpy.newaxis,:,:,:], actual, epochs=1, verbose=0, batch_size=32)
                 if epsilon > EPSILON_MIN:
                     epsilon *= ESPILON_DECAY
 
