@@ -2,21 +2,31 @@ import numpy
 from numpy import random
 from numpy.core.numeric import ndarray
 from scipy.misc.pilutil import imresize
-
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
-from keras.utils import np_utils
+from keras.optimizers import Adam
+from keras.utils import np_utils, plot_model
 from keras.datasets import mnist
-
+from collections import deque
+import random
+import pydot
 import gym
 import scipy.misc
 
+# hyperparameters
 C = 10000
 N = 1000000
-k = 4
-epsilon = 0.1  # TODO: linearly variable with t
-
+NUM_EPISODES = 200
+NUM_ITERATIONS = 1
+EPSILON_MIN = 0.1
+ESPILON_DECAY = 0.995
+LEARNING_RATE = 0.00025
+MINIBATCH_SIZE = 32
+REPLAY_MEMORY_SIZE = 1000000
+DISCOUNT_FACTOR = 0.99
+UPDATE_FREQUENCY = 2
+K_OPERATION_COUNT = 4
 
 def initNet():
     model = Sequential()
@@ -26,17 +36,10 @@ def initNet():
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64)))
     model.add(Dense(512, activation='relu'))
     model.add(Dense(18, activation='linear', input_shape=(512,)))
-    model.compile(loss='mean_squared_error', optimizer='rmsprop')
-    # model.fit(X_train, Y_train, batch_size=32, verbose=1)
+    model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
     return model
 
-def QFunc(model, phi, action):
-
-    pass
-
-
 def preprocess(recentObservations):
-
     def getMaxBetweenTwo(ob1, ob2):
         maxObservation = ndarray(ob1.shape)
         for i in range(ob1.shape[0]):
@@ -96,58 +99,73 @@ def executeKActions(env, action):
             break
     return recentKObservations, rewardTotal, done
 
-def DQN():
-    Ccounter = 0
+if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
+    memory = deque([], REPLAY_MEMORY_SIZE)
     Q = initNet()
+    Q.summary()
+    plot_model(Q, to_file='model.png')
+    # TODO: figure out if cnn creation is deterministic
     QHat = initNet()
-    average=0
-    num_episodes=1
-
-    D = []
-    for i_episode in range(num_episodes):
+    weights = Q.get_weights()
+    QHat.set_weights(weights)
+    epsilon = 1.0
+    done = False
+    c = 0
+    average = 0
+    for i_episode in range(NUM_EPISODES):
         total_reward = 0
         observation = env.reset()
+        # TODO: maybe just need to do step2 here
         action = env.action_space.sample()
         recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
-        prevPhi = preprocess(recentKObservations)
-        for t in range(1000000):
+        currentPhi = preprocess(recentKObservations)
+        
+        for t in range(NUM_ITERATIONS):
+            action = None
             env.render()
-            # perform epsilon greedy approach in choosing action
-            if random.uniform(0, 1) < epsilon:
-                action = env.action_space.sample()  # exploration
+            # choose random action with probability epsilon:
+            val = random.uniform(0, 1)
+            if val <= epsilon:
+                action = env.action_space.sample()
             else:
-                action = numpy.argmax(Q.predict(prevPhi))
-
+                action = numpy.argmax(Q.predict(selfPhi)[0])
+            
             # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(env, action)
             # get preprocessed image
-            phi = preprocess(recentKObservations)
+            nextPhi = preprocess(recentKObservations)
             # add it to the replay memory
-            D.append((prevPhi, action, rewardFromKSteps, phi, done))
-            prevPhi = phi
-            # Ensure the size of the D is not going above the limit
-            if len(D) == N:
-                D.pop(0)
-
+            memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
+            currentPhi = nextPhi
             total_reward += rewardFromKSteps
+            
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
-                #print observation, reward, done, info
                 average += total_reward
                 print "episode reward ={}".format(total_reward)
-                print "observation = {}".format(observation.shape)
                 break
 
-            # Minibatch gradient descent
-                # 9. Fit model on training data
-                # model.fit(X_train, Y_train, batch_size=32, nb_epoch=10, verbose=1)
-                # model.fit(X_train, Y_train, batch_size=32, verbose=1)
+            # update and do gradient descent
+            if len(memory) > MINIBATCH_SIZE:
+                minibatch = random.sample(memory, MINIBATCH_SIZE)
+                for selfPhi, action, reward, nextPhi, done in minibatch:
+                    target = reward
+                    # update target if not in end state
+                    if not done:
+                        prediction = numpy.amax(QHat.predict(nextPhi)[0])
+                        target = (reward + DISCOUNT_FACTOR * prediction)
+                    actual = Q.predict(selfPhi)
+                    target[0][action] = target
+                    Q.fit(selfPhi, target, epochs=1, verbose=0)
+                if epsilon > 0:
+                    epsilon *= EPSILON_DECAY
 
-            # updating QHat to Q after C steps
-                Ccounter += 1
-                if Ccounter == C:
-                    weights = Q.get_weights()
-                    QHat.set_weights(weights)
-                    Ccounter = 0
+            # update Qhat
+            if c == UPDATE_FREQUENCY:
+                weights = Q.get_weights()
+                QHat.set_weights(weights)
+                c = 0
+            else:
+                c += 1
     print "average reward={}".format(average/num_episodes)
