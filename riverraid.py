@@ -104,7 +104,7 @@ if __name__ == '__main__':
     memory = deque([], REPLAY_MEMORY_SIZE)
     Q = initNet()
     Q.summary()
-    plot_model(Q, to_file='model.png')
+    #plot_model(Q, to_file='model.png')
     # TODO: figure out if cnn creation is deterministic
     QHat = initNet()
     weights = Q.get_weights()
