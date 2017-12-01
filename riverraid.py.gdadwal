@@ -26,7 +26,7 @@ EPSILON_MIN = 0.1
 ESPILON_DECAY = (0.9/1000000)
 LEARNING_RATE = 0.00025
 MINIBATCH_SIZE = 32
-REPLAY_MEMORY_SIZE = 20000
+REPLAY_MEMORY_SIZE = 40000
 DISCOUNT_FACTOR = 0.99
 UPDATE_FREQUENCY = 10000
 K_OPERATION_COUNT = 4
@@ -35,13 +35,13 @@ REPLAY_START_SIZE = 10000
 def initNet():
     model = Sequential()
 
-    model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4)))
-    model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32)))
-    model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64)))
+    model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4), kernel_initializer='glorot_uniform'))
+    model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32), kernel_initializer='glorot_uniform'))
+    model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
     model.add(Flatten())
-    model.add(Dense(512, activation='relu'))
-    model.add(Dense(18, activation='linear', input_shape=(512,)))
-    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE))
+    model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
+    model.add(Dense(18, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
+    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
 def preprocess(recentObservations):
@@ -149,6 +149,8 @@ if __name__ == '__main__':
         pickle.dump(memory, open("memory.txt", "wb"))
         print "initial observations written to file"
     for i_episode in xrange(NUM_EPISODES):
+        sgd_skip = 0
+        num_target_updates=0
         episodeStart = time.time()
         total_reward = 0
         prevObservation = env.reset()
@@ -158,16 +160,19 @@ if __name__ == '__main__':
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
 
+        non_random=0
+        my_random=0
         for t in xrange(NUM_ITERATIONS):
             action = None
             # choose random action with probability epsilon:
             val = random.uniform(0, 1)
             if val <= epsilon:
                 action = env.action_space.sample()
+                my_random+=1
             else:
+                non_random+=1
                 action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
-            # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
             # get preprocessed image
@@ -178,13 +183,13 @@ if __name__ == '__main__':
             total_reward += rewardFromKSteps
 
             if done:
-                print("Episode {} finished after {} timesteps in {} seconds".format(i_episode, t+1, time.time() - episodeStart))
                 average += total_reward
-                print "episode reward ={}".format(total_reward)
+                print("Episode={} reward={} steps={} secs={} epsilon={} non_rand={} my_rand={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, non_random, my_random))
                 break
 
             # update and do gradient descent
-            if len(memory) > MINIBATCH_SIZE:
+            if len(memory) > MINIBATCH_SIZE and sgd_skip == 4:
+                sgd_skip = 0
                 minibatch = random.sample(memory, MINIBATCH_SIZE)
                 index = 0
                 selfPhiList = numpy.empty((MINIBATCH_SIZE,84,84,4))
@@ -196,25 +201,28 @@ if __name__ == '__main__':
                         prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
                         target = (reward + DISCOUNT_FACTOR * prediction)
                     actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
+                    #print actual[0], action, target
                     actual[0][action] = target
-                    actualList[index] = actual
+                    actualList[index] = actual[0]
                     selfPhiList[index] = selfPhi
                     index += 1
                     #imshow(selfPhi[:,:, 0])
                     #imshow(nextPhi[:,:, 0])
                 Q.fit(selfPhiList, actualList, epochs=1, verbose=0)
-
-                if epsilon > EPSILON_MIN:
-                    epsilon -= ESPILON_DECAY
-
-            # update Qhat
-            if c == UPDATE_FREQUENCY:
-                weights = Q.get_weights()
-                QHat.set_weights(weights)
-                QHat.save_weights("model.h5")
-                c = 0
-            else:
                 c += 1
+                # update Qhat
+                if c == UPDATE_FREQUENCY:
+                    weights = Q.get_weights()
+                    QHat.set_weights(weights)
+                    QHat.save_weights("model.h5")
+                    c = 0
+                    print "target NN update={}".format(num_target_updates)
+            else:
+                sgd_skip += 1
+
+            if epsilon > EPSILON_MIN:
+                epsilon -= ESPILON_DECAY
+
 
     print "average reward={}".format(average/NUM_EPISODES)
-    QHat.save_weights("model.h5")
+    #QHat.save_weights("model.h5")
