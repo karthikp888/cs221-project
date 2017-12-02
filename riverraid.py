@@ -146,7 +146,7 @@ if __name__ == '__main__':
             if val <= epsilon:
                 action = env.action_space.sample()
             else:
-                action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
+                action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
             # RUN the selected action for 2K times for better results
             recentKObservations, rewardFromKSteps, done = executeKActions(action)
