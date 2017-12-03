@@ -171,7 +171,7 @@ if __name__ == '__main__':
                 my_random+=1
             else:
                 non_random+=1
-                action = numpy.argmax(Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
+                action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
