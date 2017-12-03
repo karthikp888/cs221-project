@@ -20,7 +20,7 @@ import pickle
 import time
 
 # hyperparameters
-NUM_EPISODES = 100000
+NUM_EPISODES = 100
 NUM_ITERATIONS = 10000
 EPSILON_MIN = 0.1
 ESPILON_DECAY = (0.9/1000000)
@@ -31,12 +31,10 @@ DISCOUNT_FACTOR = 0.99
 UPDATE_FREQUENCY = 10000
 K_OPERATION_COUNT = 4
 REPLAY_START_SIZE = 10000
-NO_OP_MAX = 45
-SHOOT_ONLY_ACTION = 1
-ACTION_SPACE = [0, 1, 2, 3, 4]
 
 def initNet():
     model = Sequential()
+
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
@@ -86,7 +84,6 @@ def executeKActions(action, prevObservation):
     rewardTotal = 0
     done = False
     for i in xrange(K_OPERATION_COUNT):
-        # env.render()
         observation, reward, done, info = env.step(action+1)
         recentKObservations.append(observation)
         rewardTotal += reward
@@ -117,51 +114,16 @@ if __name__ == '__main__':
     done = False
     c = 0
     average = 0
-    #load replay_start_size observations. generate if needed. We initially
+    episode_rewards = []
+    #load replay_start_size observations. generate if needed. We initially 
     #load this many obeservatins into memory before we start training the model
     prevObservation = []
-    if os.path.exists("memory.txt"):
-        pass
-        print "Loading initial set of observations"
-        memory = pickle.load(open("memory.txt", "rb"))
-        print "Initial observations loaded"
-    else:
-        prevObservation = env.reset()
-        action = random.choice(ACTION_SPACE)
-        recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
-        prevObservation = recentKObservations[K_OPERATION_COUNT]
-        currentPhi = preprocess(recentKObservations)
-        for j in xrange(REPLAY_START_SIZE):
-            # if (j%100) == 0:
-            #     print j
-            action = random.choice(ACTION_SPACE)
-            recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
-            prevObservation = recentKObservations[K_OPERATION_COUNT]
-            nextPhi = preprocess(recentKObservations)
-            # add it to the replay memory
-            memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
-            currentPhi = nextPhi
-            if done:
-                prevObservation = env.reset()
-                action = random.choice(ACTION_SPACE)
-                recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
-                prevObservation = recentKObservations[K_OPERATION_COUNT]
-                currentPhi = preprocess(recentKObservations)
-        print "generated initial set of observations...writing to file"
-        pickle.dump(memory, open("memory.txt", "wb"))
-        print "initial observations written to file"
     for i_episode in xrange(NUM_EPISODES):
-        sgd_skip = 0
-        num_target_updates=0
         episodeStart = time.time()
         total_reward = 0
         prevObservation = env.reset()
         # TODO: maybe just need to do step2 here
-
-        # Do SHOOT_ONLY_ACTION operation for NO_OP_MAX times at the beginning of each episode
-        action = SHOOT_ONLY_ACTION
-        for i in xrange(NO_OP_MAX):
-            env.step(SHOOT_ONLY_ACTION)
+        action = random.choice([0,1,2,3,4])
         recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
@@ -171,63 +133,24 @@ if __name__ == '__main__':
         for t in xrange(NUM_ITERATIONS):
             action = None
             # choose random action with probability epsilon:
-            val = random.uniform(0, 1)
-            if val <= epsilon:
-                action = random.choice(ACTION_SPACE)
-                my_random+=1
-            else:
-                non_random+=1
-                action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
+            #os.system("clear")
+            #print Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)
+            action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
-            # get preprocessed image
-            nextPhi = preprocess(recentKObservations)
-            # add it to the replay memory
-            memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
-            currentPhi = nextPhi
             total_reward += rewardFromKSteps
-
+            #env.render()
+            #print "action = {} iter={}".format(action,t)
+            nextPhi = preprocess(recentKObservations)
+            currentPhi=nextPhi
             if done:
-                average += total_reward
+                episode_rewards.append(total_reward)
                 print("Episode={} reward={} steps={} secs={} epsilon={} non_rand={} my_rand={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, non_random, my_random))
                 break
 
-            # update and do gradient descent
-            if len(memory) > MINIBATCH_SIZE and sgd_skip == 4:
-                sgd_skip = 0
-                minibatch = random.sample(memory, MINIBATCH_SIZE)
-                index = 0
-                selfPhiList = numpy.empty((MINIBATCH_SIZE,84,84,4))
-                actualList = numpy.empty((MINIBATCH_SIZE,len(ACTION_SPACE)))
-                for selfPhi, action, reward, nextPhi, done in minibatch:
-                    target = reward
-                    # update target if not in end state
-                    if not done:
-                        prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
-                        target = (reward + DISCOUNT_FACTOR * prediction)
-                    actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
-                    actual[0][action] = target
-                    actualList[index] = actual[0]
-                    selfPhiList[index] = selfPhi
-                    index += 1
-                    #imshow(selfPhi[:,:, 0])
-                    #imshow(nextPhi[:,:, 0])
-                Q.fit(selfPhiList, actualList, epochs=1, verbose=0)
-                c += 1
-                # update Qhat
-                if c == UPDATE_FREQUENCY:
-                    weights = Q.get_weights()
-                    QHat.set_weights(weights)
-                    QHat.save_weights("model.h5")
-                    c = 0
-                    print "target NN update={}".format(num_target_updates)
-            else:
-                sgd_skip += 1
 
-            if epsilon > EPSILON_MIN:
-                epsilon -= ESPILON_DECAY
-
-
-    print "average reward={}".format(average/NUM_EPISODES)
+    print "average reward={}".format(numpy.mean(episode_rewards))
+    print "std dev reward={}".format(numpy.std(episode_rewards))
+    print "median reward={}".format(numpy.median(episode_rewards))
     #QHat.save_weights("model.h5")
