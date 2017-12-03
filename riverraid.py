@@ -33,6 +33,7 @@ K_OPERATION_COUNT = 4
 REPLAY_START_SIZE = 10000
 NO_OP_MAX = 45
 SHOOT_ONLY_ACTION = 1
+ACTION_SPACE = [0, 1, 2, 3, 4]
 
 def initNet():
     model = Sequential()
@@ -41,7 +42,7 @@ def initNet():
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
-    model.add(Dense(18, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
+    model.add(Dense(5, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
     model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
@@ -85,8 +86,8 @@ def executeKActions(action, prevObservation):
     rewardTotal = 0
     done = False
     for i in xrange(K_OPERATION_COUNT):
-        env.render()
-        observation, reward, done, info = env.step(action)
+        # env.render()
+        observation, reward, done, info = env.step(action+1)
         recentKObservations.append(observation)
         rewardTotal += reward
         if done:
@@ -122,18 +123,18 @@ if __name__ == '__main__':
     if os.path.exists("memory.txt"):
         pass
         print "Loading initial set of observations"
-        # memory = pickle.load(open("memory.txt", "rb"))
+        memory = pickle.load(open("memory.txt", "rb"))
         print "Initial observations loaded"
     else:
         prevObservation = env.reset()
-        action = env.action_space.sample()
+        action = random.choice(ACTION_SPACE)
         recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
         for j in xrange(REPLAY_START_SIZE):
             # if (j%100) == 0:
             #     print j
-            action = env.action_space.sample()
+            action = random.choice(ACTION_SPACE)
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
             nextPhi = preprocess(recentKObservations)
@@ -142,7 +143,7 @@ if __name__ == '__main__':
             currentPhi = nextPhi
             if done:
                 prevObservation = env.reset()
-                action = env.action_space.sample()
+                action = random.choice(ACTION_SPACE)
                 recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
                 prevObservation = recentKObservations[K_OPERATION_COUNT]
                 currentPhi = preprocess(recentKObservations)
@@ -156,6 +157,7 @@ if __name__ == '__main__':
         total_reward = 0
         prevObservation = env.reset()
         # TODO: maybe just need to do step2 here
+
         # Do SHOOT_ONLY_ACTION operation for NO_OP_MAX times at the beginning of each episode
         action = SHOOT_ONLY_ACTION
         for i in xrange(NO_OP_MAX):
@@ -171,7 +173,7 @@ if __name__ == '__main__':
             # choose random action with probability epsilon:
             val = random.uniform(0, 1)
             if val <= epsilon:
-                action = env.action_space.sample()
+                action = random.choice(ACTION_SPACE)
                 my_random+=1
             else:
                 non_random+=1
@@ -197,7 +199,7 @@ if __name__ == '__main__':
                 minibatch = random.sample(memory, MINIBATCH_SIZE)
                 index = 0
                 selfPhiList = numpy.empty((MINIBATCH_SIZE,84,84,4))
-                actualList = numpy.empty((MINIBATCH_SIZE,18))
+                actualList = numpy.empty((MINIBATCH_SIZE,len(ACTION_SPACE)))
                 for selfPhi, action, reward, nextPhi, done in minibatch:
                     target = reward
                     # update target if not in end state
