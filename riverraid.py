@@ -32,6 +32,10 @@ REPLAY_MEMORY_SIZE = 2000
 DISCOUNT_FACTOR = 0.95
 UPDATE_FREQUENCY = 2500
 K_OPERATION_COUNT = 4
+# REPLAY_START_SIZE = 10000
+NO_OP_MAX = 45
+SHOOT_ONLY_ACTION = 1
+ACTION_SPACE = [0, 1, 2, 3, 4]
 REPLAY_START_SIZE = 500
 epsilon = 1.0
 
@@ -45,13 +49,12 @@ def huber_loss(target, prediction):
 
 def initNet():
     model = Sequential()
-
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
-    model.add(Dense(18, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
+    model.add(Dense(5, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
     model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
@@ -96,7 +99,7 @@ def executeKActions(action, prevObservation):
     done = False
     for i in xrange(K_OPERATION_COUNT):
         # env.render()
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, info = env.step(action+1)
         recentKObservations.append(observation)
         rewardTotal += reward
         if done:
@@ -121,14 +124,14 @@ def loadHistory(memory, Q, env):
         print "Initial observations loaded"
     else:
         prevObservation = env.reset()
-        action = env.action_space.sample()
+        action = random.choice(ACTION_SPACE)
         recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
         for j in xrange(REPLAY_START_SIZE):
-            if (j%100) == 0:
-                print j
-            action = env.action_space.sample()
+            # if (j%100) == 0:
+            #     print j
+            action = random.choice(ACTION_SPACE)
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
             nextPhi = preprocess(recentKObservations)
@@ -137,7 +140,7 @@ def loadHistory(memory, Q, env):
             currentPhi = nextPhi
             if done:
                 prevObservation = env.reset()
-                action = env.action_space.sample()
+                action = random.choice(ACTION_SPACE)
                 recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
                 prevObservation = recentKObservations[K_OPERATION_COUNT]
                 currentPhi = preprocess(recentKObservations)
@@ -170,7 +173,11 @@ if __name__ == '__main__':
         total_reward = 0
         prevObservation = env.reset()
         # TODO: maybe just need to do step2 here
-        action = env.action_space.sample()
+
+        # Do SHOOT_ONLY_ACTION operation for NO_OP_MAX times at the beginning of each episode
+        action = SHOOT_ONLY_ACTION
+        for i in xrange(NO_OP_MAX):
+            env.step(SHOOT_ONLY_ACTION)
         recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
@@ -183,7 +190,7 @@ if __name__ == '__main__':
             val = random.uniform(0, 1)
             # print 'val: {}  epsilon:   {}'.format(val, epsilon)
             if val <= epsilon:
-                action = env.action_space.sample()
+                action = random.choice(ACTION_SPACE)
                 my_random+=1
             else:
                 non_random+=1
@@ -210,7 +217,7 @@ if __name__ == '__main__':
                 minibatch = random.sample(memory, MINIBATCH_SIZE)
                 index = 0
                 selfPhiList = numpy.empty((MINIBATCH_SIZE,84,84,4))
-                actualList = numpy.empty((MINIBATCH_SIZE,18))
+                actualList = numpy.empty((MINIBATCH_SIZE,len(ACTION_SPACE)))
                 for selfPhi, action, reward, nextPhi, done in minibatch:
                     target = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
                     # update target if not in end state
