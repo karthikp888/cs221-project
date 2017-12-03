@@ -71,11 +71,11 @@ class AtariEnv(gym.Env, utils.EzPickle):
     def _step(self, a):
         reward = 0.0
         action = self._action_set[a]
-
-        if isinstance(self.frameskip, int):
-            num_steps = self.frameskip
-        else:
-            num_steps = self.np_random.randint(self.frameskip[0], self.frameskip[1])
+        num_steps = 1
+        # if isinstance(self.frameskip, int):
+        #     num_steps = self.frameskip
+        # else:
+        #     num_steps = self.np_random.randint(self.frameskip[0], self.frameskip[1])
         for _ in range(num_steps):
             reward += self.ale.act(action)
         ob = self._get_obs()

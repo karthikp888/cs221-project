@@ -10,6 +10,7 @@ from keras.optimizers import Adam
 from keras.optimizers import RMSprop
 from keras.utils import np_utils, plot_model
 from keras.datasets import mnist
+from keras import backend as K
 from collections import deque
 import random
 import pydot
@@ -23,19 +24,24 @@ import time
 NUM_EPISODES = 10000
 NUM_ITERATIONS = 5000
 EPSILON_MIN = 0.1
-ESPILON_DECAY = (.99)
+ESPILON_DECAY = 0.9999977
 # LEARNING_RATE = 0.00025
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.00025
 MINIBATCH_SIZE = 32
-REPLAY_MEMORY_SIZE = 40000
+REPLAY_MEMORY_SIZE = 2000
 DISCOUNT_FACTOR = 0.95
-UPDATE_FREQUENCY = 10000
-K_OPERATION_COUNT = 3
-REPLAY_START_SIZE = 10000
+UPDATE_FREQUENCY = 2500
+K_OPERATION_COUNT = 4
+REPLAY_START_SIZE = 500
 epsilon = 1.0
 
 epsilonCount = 0
 EPSILON_UPDATE = NUM_EPISODES/3
+
+def huber_loss(target, prediction):
+        # sqrt(1+error^2)-1
+        error = prediction - target
+        return K.sum(K.sqrt(1+K.square(error))-1, axis=-1)
 
 def initNet():
     model = Sequential()
@@ -46,7 +52,7 @@ def initNet():
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(18, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
-    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
 def preprocess(recentObservations):
@@ -99,26 +105,12 @@ def executeKActions(action, prevObservation):
             break
     return recentKObservations, rewardTotal, done
 
-
-
-if __name__ == '__main__':
-    env = gym.make('Riverraid-v0')
-    memory = deque([], REPLAY_MEMORY_SIZE)
-    Q = initNet()
-    Q.summary()
-    #plot_model(Q, to_file='model.png')
+def loadHistory(memory, Q, env):
     if os.path.exists("model.h5"):
         print "load weights from previous run"
         Q.load_weights("model.h5")
     else :
         exit
-    # TODO: figure out if cnn creation is deterministic
-    QHat = initNet()
-    weights = Q.get_weights()
-    QHat.set_weights(weights)
-    done = False
-    c = 0
-    average = 0
     #load replay_start_size observations. generate if needed. We initially
     #load this many obeservatins into memory before we start training the model
     prevObservation = []
@@ -152,6 +144,25 @@ if __name__ == '__main__':
         print "generated initial set of observations...writing to file"
         pickle.dump(memory, open("memory.txt", "wb"))
         print "initial observations written to file"
+
+
+if __name__ == '__main__':
+    env = gym.make('Riverraid-v0')
+    env.frameskip = 1
+
+    # env = gym.make('Asteroids-v0')
+    memory = deque([], REPLAY_MEMORY_SIZE)
+    Q = initNet()
+    QHat = initNet()
+    weights = Q.get_weights()
+    QHat.set_weights(weights)
+    done = False
+    c = 0
+    average = 0
+    #Q.summary()
+    #plot_model(Q, to_file='model.png')
+    loadHistory(memory, Q, env)
+
     for i_episode in xrange(NUM_EPISODES):
         sgd_skip = 0
         num_target_updates=0
@@ -194,7 +205,7 @@ if __name__ == '__main__':
                 break
 
             # update and do gradient descent
-            if len(memory) > MINIBATCH_SIZE and sgd_skip == 4:
+            if len(memory) > MINIBATCH_SIZE and sgd_skip == 8:
                 sgd_skip = 0
                 minibatch = random.sample(memory, MINIBATCH_SIZE)
                 index = 0
@@ -238,12 +249,9 @@ if __name__ == '__main__':
                     print "target NN update={}".format(num_target_updates)
             else:
                 sgd_skip += 1
-            if epsilon > EPSILON_MIN and epsilonCount == EPSILON_UPDATE:
+            #reduce epsilon
+            if epsilon > EPSILON_MIN:
                 epsilon *= ESPILON_DECAY
-                # epsilon *= 0.5
-                epsilonCount = 0
-            else:
-                epsilonCount += 1
 
 
     print "average reward={}".format(average/NUM_EPISODES)
