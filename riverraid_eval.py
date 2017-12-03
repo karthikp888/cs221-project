@@ -109,7 +109,7 @@ if __name__ == '__main__':
     Q.summary()
     #plot_model(Q, to_file='model.png')
 
-    recentModel = getMostRecentModel
+    recentModel = getMostRecentModel()
     if os.path.exists(recentModel):
         print "load weights from previous run"
         Q.load_weights(recentModel)
