@@ -1,3 +1,6 @@
 *.pyc
 gym/
 tensorflow
+*.h5
+memory.txt
+.DS_Store
