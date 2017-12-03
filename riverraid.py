@@ -96,6 +96,23 @@ def executeKActions(action, prevObservation):
             break
     return recentKObservations, rewardTotal, done
 
+def getNextModelName():
+    max = 0
+    for filename in os.listdir('.'):
+        if filename.startswith('model') and filename.endswith('.h5'):
+            i = filename.split('.')[0].split('model')[1]
+            if max < i:
+                max = i
+    return "model{}.h5".format(max+1)
+
+def getMostRecentModel():
+    max = 0
+    for filename in os.listdir('.'):
+        if filename.startswith('model') and filename.endswith('.h5'):
+            i = filename.split('.')[0].split('model')[1]
+            if max < i:
+                max = i
+    return "model{}.h5".format(max)
 
 
 if __name__ == '__main__':
@@ -104,9 +121,10 @@ if __name__ == '__main__':
     Q = initNet()
     Q.summary()
     #plot_model(Q, to_file='model.png')
-    if os.path.exists("model.h5"):
+    recentModel = getMostRecentModel()
+    if os.path.exists(recentModel):
         print "load weights from previous run"
-        Q.load_weights("model.h5")
+        Q.load_weights(recentModel)
     else :
         exit
     # TODO: figure out if cnn creation is deterministic
@@ -219,7 +237,7 @@ if __name__ == '__main__':
                 if c == UPDATE_FREQUENCY:
                     weights = Q.get_weights()
                     QHat.set_weights(weights)
-                    QHat.save_weights("model.h5")
+                    QHat.save_weights(getNextModelName())
                     c = 0
                     print "target NN update={}".format(num_target_updates)
             else:
@@ -230,4 +248,4 @@ if __name__ == '__main__':
 
 
     print "average reward={}".format(average/NUM_EPISODES)
-    #QHat.save_weights("model.h5")
+    #QHat.save_weights("model0.h5")

@@ -93,7 +93,14 @@ def executeKActions(action, prevObservation):
             break
     return recentKObservations, rewardTotal, done
 
-
+def getMostRecentModel():
+    max = 0
+    for filename in os.listdir('.'):
+        if filename.startswith('model') and filename.endswith('.h5'):
+            i = filename.split('.')[0].split('model')[1]
+            if max < i:
+                max = i
+    return "model{}.h5".format(max)
 
 if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
@@ -101,9 +108,11 @@ if __name__ == '__main__':
     Q = initNet()
     Q.summary()
     #plot_model(Q, to_file='model.png')
-    if os.path.exists("model.h5"):
+
+    recentModel = getMostRecentModel
+    if os.path.exists(recentModel):
         print "load weights from previous run"
-        Q.load_weights("model.h5")
+        Q.load_weights(recentModel)
     else :
         exit
     # TODO: figure out if cnn creation is deterministic
@@ -153,4 +162,4 @@ if __name__ == '__main__':
     print "average reward={}".format(numpy.mean(episode_rewards))
     print "std dev reward={}".format(numpy.std(episode_rewards))
     print "median reward={}".format(numpy.median(episode_rewards))
-    #QHat.save_weights("model.h5")
+    #QHat.save_weights("model0.h5")
