@@ -20,17 +20,22 @@ import pickle
 import time
 
 # hyperparameters
-NUM_EPISODES = 100000
-NUM_ITERATIONS = 10000
+NUM_EPISODES = 10000
+NUM_ITERATIONS = 5000
 EPSILON_MIN = 0.1
-ESPILON_DECAY = (0.9/1000000)
-LEARNING_RATE = 0.00025
+ESPILON_DECAY = (.99)
+# LEARNING_RATE = 0.00025
+LEARNING_RATE = 0.001
 MINIBATCH_SIZE = 32
 REPLAY_MEMORY_SIZE = 40000
-DISCOUNT_FACTOR = 0.99
+DISCOUNT_FACTOR = 0.95
 UPDATE_FREQUENCY = 10000
-K_OPERATION_COUNT = 4
+K_OPERATION_COUNT = 3
 REPLAY_START_SIZE = 10000
+epsilon = 1.0
+
+epsilonCount = 0
+EPSILON_UPDATE = NUM_EPISODES/3
 
 def initNet():
     model = Sequential()
@@ -84,7 +89,7 @@ def executeKActions(action, prevObservation):
     rewardTotal = 0
     done = False
     for i in xrange(K_OPERATION_COUNT):
-        #env.render()
+        # env.render()
         observation, reward, done, info = env.step(action)
         recentKObservations.append(observation)
         rewardTotal += reward
@@ -111,7 +116,6 @@ if __name__ == '__main__':
     QHat = initNet()
     weights = Q.get_weights()
     QHat.set_weights(weights)
-    epsilon = 1.0
     done = False
     c = 0
     average = 0
@@ -166,6 +170,7 @@ if __name__ == '__main__':
             action = None
             # choose random action with probability epsilon:
             val = random.uniform(0, 1)
+            # print 'val: {}  epsilon:   {}'.format(val, epsilon)
             if val <= epsilon:
                 action = env.action_space.sample()
                 my_random+=1
@@ -174,6 +179,7 @@ if __name__ == '__main__':
                 action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
+            rewardFromKSteps = rewardFromKSteps if not done else -10
             prevObservation = recentKObservations[K_OPERATION_COUNT]
             # get preprocessed image
             nextPhi = preprocess(recentKObservations)
@@ -195,16 +201,29 @@ if __name__ == '__main__':
                 selfPhiList = numpy.empty((MINIBATCH_SIZE,84,84,4))
                 actualList = numpy.empty((MINIBATCH_SIZE,18))
                 for selfPhi, action, reward, nextPhi, done in minibatch:
-                    target = reward
+                    target = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
                     # update target if not in end state
-                    if not done:
-                        prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
-                        target = (reward + DISCOUNT_FACTOR * prediction)
-                    actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
-                    #print actual[0], action, target
-                    actual[0][action] = target
-                    actualList[index] = actual[0]
-                    selfPhiList[index] = selfPhi
+                    if done:
+                        target[0][action] = reward
+                    else:
+                        # a = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
+                        actual = Q.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0]
+                        t = QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0]
+                        # print 'target: {}'.format(target)
+                        # print 'actual: {}'.format
+                        target[0][action] = (reward + DISCOUNT_FACTOR * t[numpy.argmax(actual)])
+                    # actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
+
+                    # Q.fit(selfPhi[numpy.newaxis,:,:,:], target, epochs=1, verbose=0)
+
+                    # print actual[0], action, target
+                    # print 'data: {}'.format(selfPhi[numpy.newaxis,:,:,:])
+                    # print 'actual: {}'.format(actual)
+                    # actual[0][action] = target
+                    # actualList[index] = actual[0]
+                    # selfPhiList[index] = selfPhi
+                    actualList[index] = target
+                    selfPhiList[index] = selfPhi[numpy.newaxis,:,:,:]
                     index += 1
                     #imshow(selfPhi[:,:, 0])
                     #imshow(nextPhi[:,:, 0])
@@ -219,9 +238,12 @@ if __name__ == '__main__':
                     print "target NN update={}".format(num_target_updates)
             else:
                 sgd_skip += 1
-
-            if epsilon > EPSILON_MIN:
-                epsilon -= ESPILON_DECAY
+            if epsilon > EPSILON_MIN and epsilonCount == EPSILON_UPDATE:
+                epsilon *= ESPILON_DECAY
+                # epsilon *= 0.5
+                epsilonCount = 0
+            else:
+                epsilonCount += 1
 
 
     print "average reward={}".format(average/NUM_EPISODES)
