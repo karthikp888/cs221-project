@@ -31,10 +31,11 @@ DISCOUNT_FACTOR = 0.99
 UPDATE_FREQUENCY = 10000
 K_OPERATION_COUNT = 4
 REPLAY_START_SIZE = 10000
+NO_OP_MAX = 45
+SHOOT_ONLY_ACTION = 1
 
 def initNet():
     model = Sequential()
-
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
@@ -84,7 +85,7 @@ def executeKActions(action, prevObservation):
     rewardTotal = 0
     done = False
     for i in xrange(K_OPERATION_COUNT):
-        #env.render()
+        env.render()
         observation, reward, done, info = env.step(action)
         recentKObservations.append(observation)
         rewardTotal += reward
@@ -121,7 +122,7 @@ if __name__ == '__main__':
     if os.path.exists("memory.txt"):
         pass
         print "Loading initial set of observations"
-        memory = pickle.load(open("memory.txt", "rb"))
+        # memory = pickle.load(open("memory.txt", "rb"))
         print "Initial observations loaded"
     else:
         prevObservation = env.reset()
@@ -130,8 +131,8 @@ if __name__ == '__main__':
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
         for j in xrange(REPLAY_START_SIZE):
-            if (j%100) == 0:
-                print j
+            # if (j%100) == 0:
+            #     print j
             action = env.action_space.sample()
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
@@ -155,7 +156,10 @@ if __name__ == '__main__':
         total_reward = 0
         prevObservation = env.reset()
         # TODO: maybe just need to do step2 here
-        action = env.action_space.sample()
+        # Do SHOOT_ONLY_ACTION operation for NO_OP_MAX times at the beginning of each episode
+        action = SHOOT_ONLY_ACTION
+        for i in xrange(NO_OP_MAX):
+            env.step(SHOOT_ONLY_ACTION)
         recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
         prevObservation = recentKObservations[K_OPERATION_COUNT]
         currentPhi = preprocess(recentKObservations)
@@ -201,7 +205,6 @@ if __name__ == '__main__':
                         prediction = numpy.amax(QHat.predict(nextPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
                         target = (reward + DISCOUNT_FACTOR * prediction)
                     actual = Q.predict(selfPhi[numpy.newaxis,:,:,:], batch_size=1)
-                    #print actual[0], action, target
                     actual[0][action] = target
                     actualList[index] = actual[0]
                     selfPhiList[index] = selfPhi
