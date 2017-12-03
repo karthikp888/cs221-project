@@ -43,7 +43,7 @@ def initNet():
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(5, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
-    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95, clipvalue = 1))
     return model
 
 def preprocess(recentObservations):
