@@ -10,6 +10,7 @@ from keras.optimizers import Adam
 from keras.optimizers import RMSprop
 from keras.utils import np_utils, plot_model
 from keras.datasets import mnist
+from keras import backend as K
 from collections import deque
 import random
 import pydot
@@ -32,6 +33,13 @@ UPDATE_FREQUENCY = 10000
 K_OPERATION_COUNT = 4
 REPLAY_START_SIZE = 10000
 
+
+def huber_loss(target, prediction):
+    # sqrt(1+error^2)-1
+    error = prediction - target
+    # return K.sum(K.sqrt(1+K.square(error))-1, axis=-1)
+    return K.mean(K.sqrt(1+K.square(error))-1, axis=-1)
+
 def initNet():
     model = Sequential()
 
@@ -41,7 +49,7 @@ def initNet():
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(5, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
-    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
 def preprocess(recentObservations):
@@ -99,23 +107,22 @@ if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
     memory = deque([], REPLAY_MEMORY_SIZE)
     Q = initNet()
-    Q.summary()
     #plot_model(Q, to_file='model.png')
-    if os.path.exists("model.h5"):
+    if os.path.exists("huber_loss_test_3_184.h5"):
         print "load weights from previous run"
-        Q.load_weights("model.h5")
+        Q.load_weights("huber_loss_test_3_184.h5")
     else :
         exit
+    # Q.summary()
+    # print 'weights: {}'.format(Q.get_weights())
+
     # TODO: figure out if cnn creation is deterministic
-    QHat = initNet()
-    weights = Q.get_weights()
-    QHat.set_weights(weights)
     epsilon = 1.0
     done = False
     c = 0
     average = 0
     episode_rewards = []
-    #load replay_start_size observations. generate if needed. We initially 
+    #load replay_start_size observations. generate if needed. We initially
     #load this many obeservatins into memory before we start training the model
     prevObservation = []
     for i_episode in xrange(NUM_EPISODES):
@@ -140,7 +147,7 @@ if __name__ == '__main__':
             recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
             prevObservation = recentKObservations[K_OPERATION_COUNT]
             total_reward += rewardFromKSteps
-            #env.render()
+            env.render()
             #print "action = {} iter={}".format(action,t)
             nextPhi = preprocess(recentKObservations)
             currentPhi=nextPhi

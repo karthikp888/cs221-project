@@ -39,13 +39,18 @@ ACTION_SPACE = [0, 1, 2, 3, 4]
 REPLAY_START_SIZE = 500
 epsilon = 1.0
 
+# for naming the weights file
+UPDATE_NUMBER = 0
+UPDATE_NAME = 'huber_loss_test_3_18'
+
 epsilonCount = 0
 EPSILON_UPDATE = NUM_EPISODES/3
 
 def huber_loss(target, prediction):
-        # sqrt(1+error^2)-1
-        error = prediction - target
-        return K.sum(K.sqrt(1+K.square(error))-1, axis=-1)
+    # sqrt(1+error^2)-1
+    error = prediction - target
+    return K.sum(K.sqrt(1+K.square(error))-1, axis=-1)
+    # return K.mean(K.sqrt(1+K.square(error))-1, axis=-1)
 
 def initNet():
     model = Sequential()
@@ -151,7 +156,7 @@ def loadHistory(memory, Q, env):
 
 if __name__ == '__main__':
     env = gym.make('Riverraid-v0')
-    env.frameskip = 1
+    # env.frameskip = 1
 
     # env = gym.make('Asteroids-v0')
     memory = deque([], REPLAY_MEMORY_SIZE)
@@ -251,8 +256,11 @@ if __name__ == '__main__':
                 if c == UPDATE_FREQUENCY:
                     weights = Q.get_weights()
                     QHat.set_weights(weights)
-                    QHat.save_weights("model.h5")
+                    fileName = UPDATE_NAME + str(UPDATE_NUMBER) + ".h5"
+                    QHat.save_weights(fileName)
+                    QHat.save_weights('model.h5')
                     c = 0
+                    UPDATE_NUMBER += 1
                     print "target NN update={}".format(num_target_updates)
             else:
                 sgd_skip += 1
