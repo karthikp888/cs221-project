@@ -29,6 +29,7 @@ K_OPERATION_COUNT = 4
 ACTION_SPACE = range(18)
 NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_FIRE = 1
+ACTION_NOOP = 0
 
 
 #only needed for model.compile. Never used here as we don't train the model
@@ -138,14 +139,9 @@ def executeKActions(action):
             recentKObservations = []
             recentKObservations = [observation] * ((K_OPERATION_COUNT * 2) )
             lives = lives - 1
-            rewardTotal = -1
             break
         else:
             lives = info["ale.lives"]
-    if rewardTotal > 0:
-        rewardTotal = 1
-    elif rewardTotal < 0:
-        rewardTotal = -1
     return recentKObservations, rewardTotal, done
 
 
@@ -173,7 +169,7 @@ if __name__ == '__main__':
             #for i in xrange(random.randint(0,4)):
                 #action = 0
                 #recentKObservations, rewardFromKSteps, done = executeKActions(action)
-        action = ACTION_FIRE
+        action = ACTION_NOOP
         recentKObservations, rewardFromKSteps, done = executeKActions(action)
         currentPhi = preprocess(recentKObservations)
 
