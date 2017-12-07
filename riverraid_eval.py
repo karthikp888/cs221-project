@@ -4,6 +4,7 @@ from numpy.core.numeric import ndarray
 from scipy.misc.pilutil import imresize
 from scipy.misc.pilutil import imshow
 from keras.models import Sequential
+from keras import backend as K
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.optimizers import Adam
@@ -18,30 +19,58 @@ import scipy.misc
 import os
 import pickle
 import time
+import sys
 
 # hyperparameters
-NUM_EPISODES = 100
+NUM_EPISODES = 1
 NUM_ITERATIONS = 10000
-EPSILON_MIN = 0.1
-ESPILON_DECAY = (0.9/1000000)
 LEARNING_RATE = 0.00025
-MINIBATCH_SIZE = 32
-REPLAY_MEMORY_SIZE = 40000
-DISCOUNT_FACTOR = 0.99
-UPDATE_FREQUENCY = 10000
 K_OPERATION_COUNT = 4
-REPLAY_START_SIZE = 10000
+ACTION_SPACE = range(18)
+NUM_ACTIONS = len(ACTION_SPACE)
+ACTION_FIRE = 1
+
+
+#only needed for model.compile. Never used here as we don't train the model
+#i think this code has mit license so we should be good to use it.
+def huber_loss(y_true, y_pred, clip_value=1):
+    clip_value = 1
+    # Huber loss, see https://en.wikipedia.org/wiki/Huber_loss and
+    # https://medium.com/@karpathy/yes-you-should-understand-backprop-e2f06eab496b
+    # for details.
+    assert clip_value > 0.
+
+    x = y_true - y_pred
+    if numpy.isinf(clip_value):
+        # Spacial case for infinity since Tensorflow does have problems
+        # if we compare `K.abs(x) < np.inf`.
+        return .5 * K.square(x)
+
+    condition = K.abs(x) < clip_value
+    squared_loss = .5 * K.square(x)
+    linear_loss = clip_value * (K.abs(x) - .5 * clip_value)
+    if K.backend() == 'tensorflow':
+        import tensorflow as tf
+        if hasattr(tf, 'select'):
+            return tf.select(condition, squared_loss, linear_loss)  # condition, true, false
+        else:
+            return tf.where(condition, squared_loss, linear_loss)  # condition, true, false
+    elif K.backend() == 'theano':
+        from theano import tensor as T
+        return T.switch(condition, squared_loss, linear_loss)
+    else:
+        raise RuntimeError('Unknown backend "{}".'.format(K.backend()))
 
 def initNet():
     model = Sequential()
-
     model.add(Convolution2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(84, 84, 4), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=(20, 20, 32), kernel_initializer='glorot_uniform'))
     model.add(Convolution2D(64, (3, 3), activation='relu', input_shape=(9, 9, 64), kernel_initializer='glorot_uniform'))
     model.add(Flatten())
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
-    model.add(Dense(5, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
-    model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    model.add(Dense(NUM_ACTIONS, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
+    #model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     return model
 
 def preprocess(recentObservations):
@@ -50,7 +79,7 @@ def preprocess(recentObservations):
 
     def step1():
         maxObservations = []
-        for i in xrange(K_OPERATION_COUNT):
+        for i in xrange(0, K_OPERATION_COUNT * 2, 2):
             maxObservations.append(getMaxBetweenTwo(recentObservations[i], recentObservations[i+1]))
         return maxObservations
 
@@ -78,79 +107,93 @@ def preprocess(recentObservations):
 
     return step2(getYChannelsForAllObservations(step1()))
 
-def executeKActions(action, prevObservation):
+lives = 4
+def executeKActions(action):
     recentKObservations = []
-    recentKObservations.append(prevObservation)
     rewardTotal = 0
     done = False
-    for i in xrange(K_OPERATION_COUNT):
-        observation, reward, done, info = env.step(action+1)
-        recentKObservations.append(observation)
+    global lives
+    for i in xrange(K_OPERATION_COUNT * K_OPERATION_COUNT):
+        # env.render()
+        observation = []
+        reward = 0
+        done = 0
+        info = dict()
+
+        #when an action A is provided it is run as follows:
+        #t0,t4,t8,t12 is A
+        #t1,t2,t3,t5,t6,t7,t9,t10,t11,t13,t14,t15 is NOOP
+        if (i % K_OPERATION_COUNT) == 0:
+            observation, reward, done, info = env.step(action)
+        else:
+            observation, reward, done, info = env.step(ACTION_NOOP)
+
+        #observations obtained by running the following are recorded
+        #(t0,t1), (t4,t5), (t8,t9) (t12,t13) 
+        if ((i % K_OPERATION_COUNT) == 0) or ((i % K_OPERATION_COUNT) == 1):
+            recentKObservations.append(observation)
+
         rewardTotal += reward
-        if done:
+        if done or (info["ale.lives"] == (lives -1)):
             recentKObservations = []
-            recentKObservations = [observation] * ((K_OPERATION_COUNT) + 1)
+            recentKObservations = [observation] * ((K_OPERATION_COUNT * 2) )
+            lives = lives - 1
+            rewardTotal = -1
             break
+        else:
+            lives = info["ale.lives"]
+    if rewardTotal > 0:
+        rewardTotal = 1
+    elif rewardTotal < 0:
+        rewardTotal = -1
     return recentKObservations, rewardTotal, done
 
 
-
 if __name__ == '__main__':
-    env = gym.make('Riverraid-v0')
-    memory = deque([], REPLAY_MEMORY_SIZE)
+    #env = gym.make('Riverraid-v0')
+    env = gym.make('RiverraidNoFrameskip-v4')
+    env.frameskip = 1
     Q = initNet()
-    Q.summary()
-    #plot_model(Q, to_file='model.png')
-    if os.path.exists("model.h5"):
-        print "load weights from previous run"
-        Q.load_weights("model.h5")
-    else :
-        exit
-    # TODO: figure out if cnn creation is deterministic
-    QHat = initNet()
-    weights = Q.get_weights()
-    QHat.set_weights(weights)
+    #Q.summary()
+    Q.load_weights(sys.argv[1])
     epsilon = 1.0
     done = False
     c = 0
     average = 0
-    episode_rewards = []
-    #load replay_start_size observations. generate if needed. We initially 
-    #load this many obeservatins into memory before we start training the model
-    prevObservation = []
     for i_episode in xrange(NUM_EPISODES):
+        sgd_skip = 0
+        num_target_updates=0
         episodeStart = time.time()
         total_reward = 0
-        prevObservation = env.reset()
+        env.reset()
         # TODO: maybe just need to do step2 here
-        action = random.choice([0,1,2,3,4])
-        recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
-        prevObservation = recentKObservations[K_OPERATION_COUNT]
+
+        #for introducing stochasticity te same way google does.
+        #if i_episode == 0:
+            #for i in xrange(random.randint(0,4)):
+                #action = 0
+                #recentKObservations, rewardFromKSteps, done = executeKActions(action)
+        action = ACTION_FIRE
+        recentKObservations, rewardFromKSteps, done = executeKActions(action)
         currentPhi = preprocess(recentKObservations)
 
-        non_random=0
-        my_random=0
+        predicted_action=0
         for t in xrange(NUM_ITERATIONS):
             action = None
             # choose random action with probability epsilon:
-            #os.system("clear")
-            #print Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)
+            val = random.uniform(0, 1)
+            predicted_action+=1
             action = numpy.argmax(Q.predict(currentPhi[numpy.newaxis,:,:,:], batch_size=1)[0])
 
-            recentKObservations, rewardFromKSteps, done = executeKActions(action, prevObservation)
-            prevObservation = recentKObservations[K_OPERATION_COUNT]
-            total_reward += rewardFromKSteps
-            #env.render()
-            #print "action = {} iter={}".format(action,t)
+            recentKObservations, rewardFromKSteps, done = executeKActions(action)
+            # get preprocessed image
             nextPhi = preprocess(recentKObservations)
-            currentPhi=nextPhi
+            currentPhi = nextPhi
+            total_reward += rewardFromKSteps
+
             if done:
-                episode_rewards.append(total_reward)
-                print("Episode={} reward={} steps={} secs={} epsilon={} non_rand={} my_rand={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, non_random, my_random))
+                average += total_reward
+                print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action))
                 break
 
-
-    print "average reward={}".format(numpy.mean(episode_rewards))
-    print "std dev reward={}".format(numpy.std(episode_rewards))
-    print "median reward={}".format(numpy.median(episode_rewards))
-    #QHat.save_weights("model.h5")
+    print "average reward={}".format(average/NUM_EPISODES)
