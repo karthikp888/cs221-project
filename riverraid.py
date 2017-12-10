@@ -19,22 +19,29 @@ import scipy.misc
 import os
 import pickle
 import time
+import argparse
 
 # hyperparameters
-NUM_EPISODES = 100000
-NUM_ITERATIONS = 10000
-EPSILON_MIN = 0.1
-ESPILON_DECAY = (0.9/1000000)
-LEARNING_RATE = 0.00025
-MINIBATCH_SIZE = 32
-REPLAY_MEMORY_SIZE = 250000
-DISCOUNT_FACTOR = 0.99
-UPDATE_FREQUENCY = 10000
-K_OPERATION_COUNT = 4
-REPLAY_START_SIZE = 50000
-ACTION_SPACE = range(18)
-NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_NOOP = 0
+
+argParser = argparse.ArgumentParser()
+NUM_EPISODES = argParser.add_argument('--num-episodes', type=int, default=1)
+NUM_ITERATIONS = argParser.add_argument('--num-iterations', type=int, default=10000)
+EPSILON_MIN = argParser.add_argument('--epsilon-min', type=float, default=0.1)
+EPSILON_DECAY = argParser.add_argument('--epsilon-decay', type=float, default=(0.9/1000000))
+LEARNING_RATE = argParser.add_argument('--learning-rate', type=float, default=0.00025)
+MINIBATCH_SIZE = argParser.add_argument('--minibatch-size', type=int, default=32)
+REPLAY_MEMORY_SIZE = argParser.add_argument('--replay-memory-size', type=int, default=250000)
+DISCOUNT_FACTOR = argParser.add_argument('--discount-factor', type=float, default=0.99)
+UPDATE_FREQUENCY = argParser.add_argument('--update-frequency', type=int, default=10000)
+REPLAY_START_SIZE = argParser.add_argument('--replay-start-size', type=int, default=50000)
+K_OPERATION_COUNT = argParser.add_argument('--k-operation-count', type=int, default=4)
+
+
+ACTION_SPACE = range(argParser.add_argument('--action-space', type=int, default=18))
+NUM_ACTIONS = len(ACTION_SPACE)
+ACTION_FIRE = argParser.add_argument('--action-fire', type=int, default=1)
+ACTION_NOOP = argParser.add_argument('--action-noop', type=int, default=0)
 
 
 #manav's pseudo-huber

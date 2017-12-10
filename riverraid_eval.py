@@ -20,16 +20,26 @@ import os
 import pickle
 import time
 import sys
+import argparse
 
 # hyperparameters
-NUM_EPISODES = 1
-NUM_ITERATIONS = 10000
-LEARNING_RATE = 0.00025
-K_OPERATION_COUNT = 4
-ACTION_SPACE = range(18)
+# NUM_EPISODES = 1
+# NUM_ITERATIONS = 10000
+# LEARNING_RATE = 0.00025
+# K_OPERATION_COUNT = 4
+# ACTION_SPACE = range(18)
+# NUM_ACTIONS = len(ACTION_SPACE)
+# ACTION_FIRE = 1
+# ACTION_NOOP = 0
+argParser = argparse.ArgumentParser()
+NUM_EPISODES = argParser.add_argument('--num-episodes', type=int, default=1)
+NUM_ITERATIONS = argParser.add_argument('--num-iterations', type=int, default=10000)
+LEARNING_RATE = argParser.add_argument('--learning-rate', type=float, default=0.00025)
+K_OPERATION_COUNT = argParser.add_argument('--k-operation-count', type=int, default=4)
+ACTION_SPACE = range(argParser.add_argument('--action-space', type=int, default=18))
 NUM_ACTIONS = len(ACTION_SPACE)
-ACTION_FIRE = 1
-ACTION_NOOP = 0
+ACTION_FIRE = argParser.add_argument('--action-fire', type=int, default=1)
+ACTION_NOOP = argParser.add_argument('--action-noop', type=int, default=0)
 
 
 #only needed for model.compile. Never used here as we don't train the model
