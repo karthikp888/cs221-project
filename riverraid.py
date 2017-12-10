@@ -20,7 +20,12 @@ import os
 import pickle
 import time
 import argparse
+import json
+STATS = {}
 
+def flush_stats():
+    with open('stats.json', 'w') as f:
+        print >>f, json.dumps(STATS)
 # hyperparameters
 ACTION_NOOP = 0
 
@@ -194,8 +199,9 @@ if __name__ == '__main__':
     Q = initNet()
     Q.summary()
     if os.path.exists("model.h5"):
-        print "load weights from previous run"
+        print "Found weights from previous run, loading it"
         Q.load_weights("model.h5")
+        print "Found weights from previous run, loading complete!"
     else :
         exit
     QHat = initNet()
@@ -216,9 +222,9 @@ if __name__ == '__main__':
     #load this many obeservatins into memory before we start training the model
     if os.path.exists("memory.txt"):
         pass
-        print "Loading initial set of observations"
+        print "initial set of observations found, loading it"
         memory = pickle.load(open("memory.txt", "rb"))
-        print "Initial observations loaded from memory.txt"
+        print "initial set of observations found, loading complete!"
     else:
         env.reset()
         action = random.choice(ACTION_SPACE)
@@ -278,6 +284,14 @@ if __name__ == '__main__':
             if done:
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={} random_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action, random_action))
+                STATS['episode'] = i_episode
+                STATS['reward'] = total_reward
+                STATS['steps'] = t+1
+                STATS['secs'] = time.time() - episodeStart
+                STATS['epsilon'] = epsilon
+                STATS['predicted_action'] = predicted_action
+                STATS['random_action'] = random_action
+                flush_stats()
                 break
 
             # update and do gradient descent
@@ -314,7 +328,7 @@ if __name__ == '__main__':
                 sgd_skip += 1
 
             if epsilon > EPSILON_MIN:
-                epsilon -= ESPILON_DECAY
+                epsilon -= EPSILON_DECAY
 
 
     print "average reward={}".format(average/NUM_EPISODES)
