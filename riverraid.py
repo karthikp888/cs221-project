@@ -19,23 +19,54 @@ import scipy.misc
 import os
 import pickle
 import time
+import argparse
+import json
+STATS = {}
 
+def flush_stats():
+    with open('stats.json', 'w') as f:
+        print >>f, json.dumps(STATS)
 # hyperparameters
-NUM_EPISODES = 100000
-NUM_ITERATIONS = 10000
-EPSILON_MIN = 0.1
-ESPILON_DECAY = (0.9/1000000)
-LEARNING_RATE = 0.00025
-MINIBATCH_SIZE = 32
-REPLAY_MEMORY_SIZE = 250000
-DISCOUNT_FACTOR = 0.99
-UPDATE_FREQUENCY = 10000
-K_OPERATION_COUNT = 4
-REPLAY_START_SIZE = 50000
-ACTION_SPACE = range(18)
-NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_NOOP = 0
 
+argParser = argparse.ArgumentParser()
+argParser.add_argument('--num-episodes', type=int, default=1000000)
+argParser.add_argument('--num-iterations', type=int, default=100000)
+argParser.add_argument('--epsilon-min', type=float, default=0.1)
+argParser.add_argument('--epsilon-decay', type=float, default=(0.9/1000000))
+argParser.add_argument('--learning-rate', type=float, default=0.00025)
+argParser.add_argument('--minibatch-size', type=int, default=32)
+argParser.add_argument('--replay-memory-size', type=int, default=125000)
+argParser.add_argument('--discount-factor', type=float, default=0.99)
+argParser.add_argument('--update-frequency', type=int, default=10000)
+argParser.add_argument('--replay-start-size', type=int, default=50000)
+argParser.add_argument('--k-operation-count', type=int, default=4)
+argParser.add_argument('--action-space', type=int, default=18)
+argParser.add_argument('--action-fire', type=int, default=1)
+argParser.add_argument('--action-noop', type=int, default=0)
+argParser.add_argument('--loss-function', default='HUBER')
+argParser.add_argument('--gym-environment', default='RiverraidNoFrameskip-v0')
+args = argParser.parse_args()
+print args
+NUM_EPISODES = args.num_episodes
+NUM_ITERATIONS = args.num_iterations
+EPSILON_MIN = args.epsilon_min
+EPSILON_DECAY = args.epsilon_decay
+LEARNING_RATE = args.learning_rate
+MINIBATCH_SIZE = args.minibatch_size
+REPLAY_MEMORY_SIZE = args.replay_memory_size
+DISCOUNT_FACTOR = args.discount_factor
+UPDATE_FREQUENCY = args.update_frequency
+REPLAY_START_SIZE = args.replay_start_size
+K_OPERATION_COUNT = args.k_operation_count
+ACTION_SPACE = range(args.action_space)
+NUM_ACTIONS = len(ACTION_SPACE)
+ACTION_FIRE = args.action_fire
+ACTION_NOOP = args.action_noop
+LOSS_FUNCTION = args.loss_function
+gym_environment = args.gym_environment
+PRINT_FREQUENCY = 200
+PRINT_COUNT = 0
 
 #manav's pseudo-huber
 #def huber_loss(target, prediction):
@@ -79,7 +110,11 @@ def initNet():
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(NUM_ACTIONS, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
     #model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
-    model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    if LOSS_FUNCTION == 'MSE':
+        model.compile(loss='MSE', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    else:
+        model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+
     return model
 
 def preprocess(recentObservations):
@@ -178,7 +213,8 @@ if __name__ == '__main__':
     #env = gym.make('Riverraid-v4')
 
     #stochastic and no frame skip (for real final results)
-    env = gym.make('RiverraidNoFrameskip-v0')
+    gym_environment = 'RiverraidNoFrameskip-v0'
+    env = gym.make(gym_environment)
 
     #non-stochastic and no frame skip (best for checking if you algo is learing)
     #env = gym.make('RiverraidNoFrameskip-v4')
@@ -187,8 +223,9 @@ if __name__ == '__main__':
     Q = initNet()
     Q.summary()
     if os.path.exists("model.h5"):
-        print "load weights from previous run"
+        print "Found weights from previous run, loading it"
         Q.load_weights("model.h5")
+        print "Found weights from previous run, loading complete!"
     else :
         exit
     QHat = initNet()
@@ -209,9 +246,9 @@ if __name__ == '__main__':
     #load this many obeservatins into memory before we start training the model
     if os.path.exists("memory.txt"):
         pass
-        print "Loading initial set of observations"
+        print "initial set of observations found, loading it"
         memory = pickle.load(open("memory.txt", "rb"))
-        print "Initial observations loaded from memory.txt"
+        print "initial set of observations found, loading complete!"
     else:
         env.reset()
         action = random.choice(ACTION_SPACE)
@@ -267,10 +304,22 @@ if __name__ == '__main__':
             memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
             currentPhi = nextPhi
             total_reward += rewardFromKSteps
-
+            STATS['total_episode'] = NUM_EPISODES
             if done:
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={} random_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action, random_action))
+                PRINT_COUNT += 1
+                if PRINT_COUNT % PRINT_FREQUENCY == 0:
+                    STATS['episode'] = i_episode
+                    STATS['reward'] = total_reward
+                    STATS['steps'] = t + 1
+                    STATS['secs'] = time.time() - episodeStart
+                    STATS['epsilon'] = epsilon
+                    STATS['predicted_action'] = predicted_action
+                    STATS['random_action'] = random_action
+                    flush_stats()
+                    PRINT_COUNT = 0
+
                 break
 
             # update and do gradient descent
@@ -300,6 +349,10 @@ if __name__ == '__main__':
                     weights = Q.get_weights()
                     QHat.set_weights(weights)
                     QHat.save_weights("model_{}.h5".format(model_num))
+                    print "Evaluating the model:", "model_{}.h5".format(model_num)
+                    os.system("python riverraid_eval.py model_{}.h5 {}".format(model_num, gym_environment))
+                    # model_eval.evaluate("model_{}.h5".format(model_num))
+                    print "Evaluation Done!"
                     model_num += 1
                     c = 0
                     print "target NN update={}".format(num_target_updates)
@@ -307,7 +360,8 @@ if __name__ == '__main__':
                 sgd_skip += 1
 
             if epsilon > EPSILON_MIN:
-                epsilon -= ESPILON_DECAY
+                epsilon -= EPSILON_DECAY
 
-
+    STATS['average_reward'] = average/NUM_EPISODES
+    flush_stats()
     print "average reward={}".format(average/NUM_EPISODES)

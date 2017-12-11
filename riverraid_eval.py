@@ -1,3 +1,5 @@
+from fileinput import filename
+
 import numpy
 from numpy import random
 from numpy.core.numeric import ndarray
@@ -20,9 +22,18 @@ import os
 import pickle
 import time
 import sys
+import argparse
 
 # hyperparameters
-NUM_EPISODES = 1
+# NUM_EPISODES = 1
+# NUM_ITERATIONS = 10000
+# LEARNING_RATE = 0.00025
+# K_OPERATION_COUNT = 4
+# ACTION_SPACE = range(18)
+# NUM_ACTIONS = len(ACTION_SPACE)
+# ACTION_FIRE = 1
+# ACTION_NOOP = 0
+NUM_EPISODES = 10
 NUM_ITERATIONS = 10000
 LEARNING_RATE = 0.00025
 K_OPERATION_COUNT = 4
@@ -30,7 +41,6 @@ ACTION_SPACE = range(18)
 NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_FIRE = 1
 ACTION_NOOP = 0
-
 
 #only needed for model.compile. Never used here as we don't train the model
 #i think this code has mit license so we should be good to use it.
@@ -147,8 +157,9 @@ def executeKActions(action):
 
 if __name__ == '__main__':
     #env = gym.make('Riverraid-v0')
-    env = gym.make('RiverraidNoFrameskip-v4')
-    env.frameskip = 1
+    # env = gym.make('RiverraidNoFrameskip-v4')
+    env = gym.make(sys.argv[2])
+    # env.frameskip = 1
     Q = initNet()
     #Q.summary()
     Q.load_weights(sys.argv[1])
@@ -191,5 +202,9 @@ if __name__ == '__main__':
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action))
                 break
-
+    with open('avg_reward.tsv', 'a+') as f:
+        f.write(sys.argv[1].split('.')[0].split('model_')[1])
+        f.write("\t")
+        f.write("%d\r\n" % (average/NUM_EPISODES))
+    #f.close()
     print "average reward={}".format(average/NUM_EPISODES)
