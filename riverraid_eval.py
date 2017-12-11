@@ -208,8 +208,9 @@ if __name__ == '__main__':
             plotX.append(line.strip().split('\t')[0])
             plotY.append(line.strip().split('\t')[1])
             line = f.readline()
-
     plt.plot(plotX, plotY)
+    plt.ylabel('Avg. Rewards')
+    plt.xlabel('Training Epoch')
     plt.savefig('reward.png')
     print "plotting graph end"
     #f.close()
