@@ -44,7 +44,7 @@ argParser.add_argument('--k-operation-count', type=int, default=4)
 argParser.add_argument('--action-space', type=int, default=18)
 argParser.add_argument('--action-fire', type=int, default=1)
 argParser.add_argument('--action-noop', type=int, default=0)
-argParser.add_argument('--loss-function', default=0)
+argParser.add_argument('--loss-function', default='HUBER')
 argParser.add_argument('--gym-environment', default='RiverraidNoFrameskip-v0')
 args = argParser.parse_args()
 print args
