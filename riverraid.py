@@ -63,9 +63,9 @@ ACTION_SPACE = range(args.action_space)
 NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_FIRE = args.action_fire
 ACTION_NOOP = args.action_noop
-LOSS_Function = args.loss_function
+LOSS_FUNCTION = args.loss_function
 gym_environment = args.gym_environment
-PRINT_FREQUENCY = 2
+PRINT_FREQUENCY = 200
 PRINT_COUNT = 0
 
 #manav's pseudo-huber
@@ -110,7 +110,7 @@ def initNet():
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(NUM_ACTIONS, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
     #model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
-    if LOSS_Function == 'MSE':
+    if LOSS_FUNCTION == 'MSE':
         model.compile(loss='MSE', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     else:
         model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
