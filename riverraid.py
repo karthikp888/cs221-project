@@ -294,7 +294,7 @@ if __name__ == '__main__':
             memory.append((currentPhi, action, rewardFromKSteps, nextPhi, done))
             currentPhi = nextPhi
             total_reward += rewardFromKSteps
-
+            STATS['total_episode'] = NUM_EPISODES
             if done:
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={} random_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action, random_action))
