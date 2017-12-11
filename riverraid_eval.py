@@ -167,11 +167,6 @@ if __name__ == '__main__':
     done = False
     c = 0
     average = 0
-    with open('avg_reward.tsv', 'a+') as f:
-        f.write("x")
-        f.write("\t")
-        f.write("y")
-
     for i_episode in xrange(NUM_EPISODES):
         sgd_skip = 0
         num_target_updates=0

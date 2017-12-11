@@ -21,7 +21,6 @@ import pickle
 import time
 import argparse
 import json
-import riverraid_codalab as model_eval
 STATS = {}
 
 def flush_stats():
@@ -310,9 +309,7 @@ if __name__ == '__main__':
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={} random_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action, random_action))
                 PRINT_COUNT += 1
-                print "$$$$$$$$", PRINT_COUNT
                 if PRINT_COUNT % PRINT_FREQUENCY == 0:
-                    print 'writing stats'
                     STATS['episode'] = i_episode
                     STATS['reward'] = total_reward
                     STATS['steps'] = t + 1
