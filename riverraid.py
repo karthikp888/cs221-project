@@ -44,6 +44,7 @@ argParser.add_argument('--k-operation-count', type=int, default=4)
 argParser.add_argument('--action-space', type=int, default=18)
 argParser.add_argument('--action-fire', type=int, default=1)
 argParser.add_argument('--action-noop', type=int, default=0)
+argParser.add_argument('--loss-function', default=0)
 args = argParser.parse_args()
 print args
 NUM_EPISODES = args.num_episodes
@@ -61,6 +62,7 @@ ACTION_SPACE = range(args.action_space)
 NUM_ACTIONS = len(ACTION_SPACE)
 ACTION_FIRE = args.action_fire
 ACTION_NOOP = args.action_noop
+LOSS_Function = args.loss_function
 
 
 #manav's pseudo-huber
@@ -105,7 +107,11 @@ def initNet():
     model.add(Dense(512, activation='relu', kernel_initializer='glorot_uniform'))
     model.add(Dense(NUM_ACTIONS, activation='linear', input_shape=(512,), kernel_initializer='glorot_uniform'))
     #model.compile(loss='mse', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
-    model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    if LOSS_Function == 'MSE':
+        model.compile(loss='MSE', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+    else:
+        model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+
     return model
 
 def preprocess(recentObservations):
