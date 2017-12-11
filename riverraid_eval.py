@@ -1,28 +1,18 @@
 from fileinput import filename
 
 import numpy
-from numpy import random
 from numpy.core.numeric import ndarray
 from scipy.misc.pilutil import imresize
-from scipy.misc.pilutil import imshow
 from keras.models import Sequential
 from keras import backend as K
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D
-from keras.optimizers import Adam
 from keras.optimizers import RMSprop
-from keras.utils import np_utils, plot_model
-from keras.datasets import mnist
-from collections import deque
 import random
-import pydot
 import gym
-import scipy.misc
-import os
-import pickle
 import time
 import sys
-import argparse
+import matplotlib.pyplot as plt
 
 # hyperparameters
 # NUM_EPISODES = 1
@@ -202,9 +192,26 @@ if __name__ == '__main__':
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action))
                 break
+    print "writing avg rewards started"
     with open('avg_reward.tsv', 'a+') as f:
         f.write(sys.argv[1].split('.')[0].split('model_')[1])
         f.write("\t")
         f.write("%d\r\n" % (average/NUM_EPISODES))
+        f.close
+    plotX = []
+    plotY = []
+    print "writing avg rewards ends"
+    print "plotting graph start"
+    with open('avg_reward.tsv') as f:
+        line = f.readline()
+        while line:
+            plotX.append(line.strip().split('\t')[0])
+            plotY.append(line.strip().split('\t')[1])
+            line = f.readline()
+    plt.plot(plotX, plotY)
+    plt.ylabel('Avg. Rewards')
+    plt.xlabel('Training Epoch')
+    plt.savefig('reward.png')
+    print "plotting graph end"
     #f.close()
     print "average reward={}".format(average/NUM_EPISODES)
