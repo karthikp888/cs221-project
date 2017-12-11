@@ -30,23 +30,37 @@ def flush_stats():
 ACTION_NOOP = 0
 
 argParser = argparse.ArgumentParser()
-NUM_EPISODES = argParser.add_argument('--num-episodes', type=int, default=1)
-NUM_ITERATIONS = argParser.add_argument('--num-iterations', type=int, default=10000)
-EPSILON_MIN = argParser.add_argument('--epsilon-min', type=float, default=0.1)
-EPSILON_DECAY = argParser.add_argument('--epsilon-decay', type=float, default=(0.9/1000000))
-LEARNING_RATE = argParser.add_argument('--learning-rate', type=float, default=0.00025)
-MINIBATCH_SIZE = argParser.add_argument('--minibatch-size', type=int, default=32)
-REPLAY_MEMORY_SIZE = argParser.add_argument('--replay-memory-size', type=int, default=250000)
-DISCOUNT_FACTOR = argParser.add_argument('--discount-factor', type=float, default=0.99)
-UPDATE_FREQUENCY = argParser.add_argument('--update-frequency', type=int, default=10000)
-REPLAY_START_SIZE = argParser.add_argument('--replay-start-size', type=int, default=50000)
-K_OPERATION_COUNT = argParser.add_argument('--k-operation-count', type=int, default=4)
-
-
-ACTION_SPACE = range(argParser.add_argument('--action-space', type=int, default=18))
+argParser.add_argument('--num-episodes', type=int, default=100000)
+argParser.add_argument('--num-iterations', type=int, default=10000)
+argParser.add_argument('--epsilon-min', type=float, default=0.1)
+argParser.add_argument('--epsilon-decay', type=float, default=(0.9/1000000))
+argParser.add_argument('--learning-rate', type=float, default=0.00025)
+argParser.add_argument('--minibatch-size', type=int, default=32)
+argParser.add_argument('--replay-memory-size', type=int, default=250000)
+argParser.add_argument('--discount-factor', type=float, default=0.99)
+argParser.add_argument('--update-frequency', type=int, default=10000)
+argParser.add_argument('--replay-start-size', type=int, default=50000)
+argParser.add_argument('--k-operation-count', type=int, default=4)
+argParser.add_argument('--action-space', type=int, default=18)
+argParser.add_argument('--action-fire', type=int, default=1)
+argParser.add_argument('--action-noop', type=int, default=0)
+args = argParser.parse_args()
+print args
+NUM_EPISODES = args.num_episodes
+NUM_ITERATIONS = args.num_iterations
+EPSILON_MIN = args.epsilon_min
+EPSILON_DECAY = args.epsilon_decay
+LEARNING_RATE = args.learning_rate
+MINIBATCH_SIZE = args.minibatch_size
+REPLAY_MEMORY_SIZE = args.replay_memory_size
+DISCOUNT_FACTOR = args.discount_factor
+UPDATE_FREQUENCY = args.update_frequency
+REPLAY_START_SIZE = args.replay_start_size
+K_OPERATION_COUNT = args.k_operation_count
+ACTION_SPACE = range(args.action_space)
 NUM_ACTIONS = len(ACTION_SPACE)
-ACTION_FIRE = argParser.add_argument('--action-fire', type=int, default=1)
-ACTION_NOOP = argParser.add_argument('--action-noop', type=int, default=0)
+ACTION_FIRE = args.action_fire
+ACTION_NOOP = args.action_noop
 
 
 #manav's pseudo-huber
