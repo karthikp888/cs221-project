@@ -167,6 +167,11 @@ if __name__ == '__main__':
     done = False
     c = 0
     average = 0
+    with open('avg_reward.tsv', 'a+') as f:
+        f.write("x")
+        f.write("\t")
+        f.write("y")
+
     for i_episode in xrange(NUM_EPISODES):
         sgd_skip = 0
         num_target_updates=0
@@ -202,8 +207,9 @@ if __name__ == '__main__':
                 average += total_reward
                 print("Episode={} reward={} steps={} secs={} epsilon={} predicted_action={}".format(i_episode, total_reward, t+1, time.time() - episodeStart, epsilon, predicted_action))
                 break
-    with open('avg_reward.txt', 'a+') as f:
-        f.write(sys.argv[1])
-        f.write(" %d\r\n" % (average/NUM_EPISODES))
+    with open('avg_reward.tsv', 'a+') as f:
+        f.write(sys.argv[1].split('.')[0].split('model_')[1])
+        f.write("\t")
+        f.write("%d\r\n" % (average/NUM_EPISODES))
     #f.close()
     print "average reward={}".format(average/NUM_EPISODES)
