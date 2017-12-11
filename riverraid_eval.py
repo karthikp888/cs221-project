@@ -12,7 +12,7 @@ import random
 import gym
 import time
 import sys
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # hyperparameters
 # NUM_EPISODES = 1
@@ -202,16 +202,16 @@ if __name__ == '__main__':
     plotY = []
     print "writing avg rewards ends"
     print "plotting graph start"
-    with open('avg_reward.tsv') as f:
-        line = f.readline()
-        while line:
-            plotX.append(line.strip().split('\t')[0])
-            plotY.append(line.strip().split('\t')[1])
-            line = f.readline()
-    plt.plot(plotX, plotY)
-    plt.ylabel('Avg. Rewards')
-    plt.xlabel('Training Epoch')
-    plt.savefig('reward.png')
-    print "plotting graph end"
+    # with open('avg_reward.tsv') as f:
+    #     line = f.readline()
+    #     while line:
+    #         plotX.append(line.strip().split('\t')[0])
+    #         plotY.append(line.strip().split('\t')[1])
+    #         line = f.readline()
+    # # plt.plot(plotX, plotY)
+    # # plt.ylabel('Avg. Rewards')
+    # # plt.xlabel('Training Epoch')
+    # # plt.savefig('reward.png')
+    # print "plotting graph end"
     #f.close()
     print "average reward={}".format(average/NUM_EPISODES)
