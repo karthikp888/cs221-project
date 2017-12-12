@@ -15,7 +15,10 @@
 # Running DQN Agent
 `python riverraid.py`
 # Running in Codalab
+* Signup Codalab account
 * upload riverraid.py
-* cl run :riverraid.py :riverraid_eval.py "python riverraid.py --num-episodes 5" --request-docker-image gdadwal/openai-gym
+* upload riverraid_eval.py
+* Paste the following command on the cli web interface on top of the page
+* cl run :riverraid.py :riverraid_eval.py "python riverraid.py <your hyper parameters>" --request-docker-image gdadwal/openai-gym <--request-gpus 1>
 * For Custom Markup add this to your worksheet
 * % display image /reward.png
