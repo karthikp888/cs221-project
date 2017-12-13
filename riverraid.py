@@ -113,7 +113,7 @@ def initNet():
     if LOSS_FUNCTION == 'MSE':
         model.compile(loss='MSE', optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
     else:
-        model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE, epsilon=0.01, decay=0.95, rho=0.95))
+        model.compile(loss=huber_loss, optimizer=RMSprop(lr=LEARNING_RATE))
 
     return model
 
